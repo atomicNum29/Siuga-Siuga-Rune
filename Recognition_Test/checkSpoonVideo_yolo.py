@@ -1,17 +1,20 @@
 from ultralytics import YOLO
 import cv2
+import os
 import time
 import numpy as np
 
 # Step 1: YOLOv8 모델 로드
-model = YOLO('yolov8s.pt')  # YOLOv8 small 모델
+current_dir = os.path.dirname(os.path.abspath(__file__))
+model_path = os.path.join(current_dir, 'model/yolov8s.pt')
+model = YOLO(model_path)  # YOLOv8 small 모델
 
 # Step 2: 영상 불러오기
-video_path = 'spoonvideo6.mp4'  # 분석할 영상 경로 설정
+video_path = os.path.join(current_dir, 'video/input/spoonvideo10.mp4')
 cap = cv2.VideoCapture(video_path)
 
 # 영상 저장을 위한 설정
-output_video_path = 'output_spoon6.mp4'
+output_video_path = os.path.join(current_dir, 'video/output/output_spoon10.mp4')
 frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 fps = int(cap.get(cv2.CAP_PROP_FPS))
@@ -68,4 +71,3 @@ while cap.isOpened():
 # Step 5: 모든 리소스 해제
 cap.release()
 out.release()
-cv2.destroyAllWindows()
