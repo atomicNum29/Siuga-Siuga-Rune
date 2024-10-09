@@ -4,6 +4,9 @@ import os
 import json
 import time
 import numpy as np
+import matplotlib.pyplot as plt
+
+
 
 # Step 1: YOLOv8 모델 로드
 # 0 = nano, 1 = small, 2 = medium, 3 = large, 4 = extra-large
@@ -24,17 +27,19 @@ img = cv2.imread(image_path)
 detect_start_time = time.time()
 
 # Step 3: YOLOv8 모델을 사용하여 객체 감지 수행
-results = model(img)
+results = model(img, stream=True)
 
 # Detection time end & calculate detect time
 detect_time = time.time() - detect_start_time
 
 # 모델 내부 추론 시간 저장
-inference_time = results[0].speed['inference']
+for result in results:
+    inference_time = result.speed['inference']
+    boxes = result.boxes
 
 # Step 4: 포크 객체 필터링 (class ID: 42 -> fork)
 fork_class_id = 42  # COCO 데이터셋에서 "fork"에 해당하는 class ID
-boxes = results[0].boxes  # 감지된 바운딩 박스들
+# boxes = results[0].boxes  # 감지된 바운딩 박스들
 fork_indices = np.where(boxes.cls.cpu().numpy() == fork_class_id)[0]  # 포크에 해당하는 인덱스 찾기
 
 # Step 5: 포크 객체만 그리기
