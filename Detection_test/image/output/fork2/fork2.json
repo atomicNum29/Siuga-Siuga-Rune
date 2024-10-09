@@ -1,0 +1,36 @@
+{
+    "yolov8n": [
+        {
+            "inference_time": "0.1029s",
+            "code_time": "1.1695s"
+        },
+        {
+            "inference_time": "0.1003s",
+            "code_time": "1.0016s"
+        }
+    ],
+    "yolov8s": [
+        {
+            "inference_time": "0.1953s",
+            "code_time": "1.2219s"
+        }
+    ],
+    "yolov8m": [
+        {
+            "inference_time": "0.4451s",
+            "code_time": "1.6444s"
+        }
+    ],
+    "yolov8l": [
+        {
+            "inference_time": "0.784s",
+            "code_time": "2.2307s"
+        }
+    ],
+    "yolov8x": [
+        {
+            "inference_time": "1.2097s",
+            "code_time": "2.9806s"
+        }
+    ]
+}
