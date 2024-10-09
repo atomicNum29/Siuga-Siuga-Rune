@@ -11,12 +11,12 @@ import matplotlib.pyplot as plt
 # Step 1: YOLOv8 모델 로드
 # 0 = nano, 1 = small, 2 = medium, 3 = large, 4 = extra-large
 model_list = ['yolov8n', 'yolov8s', 'yolov8m', 'yolov8l', 'yolov8x']
-model_name = model_list[3]
+model_name = model_list[2]
 current_dir = os.path.dirname(os.path.abspath(__file__))
 model_path = os.path.join(current_dir, f'model/{model_name}.pt')
 
 # run detection using cuda
-model = YOLO(model_path)
+model = YOLO(model_path).to('cuda')
 
 # Step 2: 이미지 불러오기
 image_name = 'fork2'
@@ -76,7 +76,7 @@ timeList = {'inference_time' : f'{round(inference_time / 1000, 4)}s',
 print(f"infer : {timeList['inference_time']}, code : {timeList['code_time']}")
 
 # 추론시간 및 코드상 검출 시간 저장
-json_path = os.path.join(output_dir, f'{image_name}.json')
+json_path = os.path.join(output_dir, f'{image_name}_cuda.json')
 
 # JSON 있는 지 확인
 if os.path.exists(json_path):
