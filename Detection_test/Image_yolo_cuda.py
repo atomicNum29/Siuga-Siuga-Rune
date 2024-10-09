@@ -4,8 +4,6 @@ import os
 import json
 import time
 import numpy as np
-import matplotlib.pyplot as plt
-
 
 
 # Step 1: YOLOv8 모델 로드
