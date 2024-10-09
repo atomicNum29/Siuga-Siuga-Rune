@@ -5,7 +5,6 @@ import json
 import time
 import numpy as np
 
-
 # Step 1: YOLOv8 모델 로드
 # 0 = nano, 1 = small, 2 = medium, 3 = large, 4 = extra-large
 model_list = ['yolov8n', 'yolov8s', 'yolov8m', 'yolov8l', 'yolov8x']
