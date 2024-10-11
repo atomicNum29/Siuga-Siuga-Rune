@@ -202,6 +202,25 @@
                 "inference_time": "0.0183s",
                 "code_time": "0.2032s"
             }
+        },
+        {
+            "Date": "2024-10-11 11:58:21",
+            "Local Options": [
+                "stream=True"
+            ],
+            "CPU_info": {
+                "CPU Frequency": "scpufreq(current=2904.0, min=0.0, max=2904.0)",
+                "Core Num": "8",
+                "Logical Core Num": "16"
+            },
+            "GPU_info": {
+                "GPU": "NVIDIA GeForce RTX 3070",
+                "GPU Memory": "8192.0MB"
+            },
+            "time": {
+                "inference_time": "0.007s",
+                "code_time": "0.1792s"
+            }
         }
     ],
     "yolov8m": null,
