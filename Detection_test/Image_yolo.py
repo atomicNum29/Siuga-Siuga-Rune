@@ -8,7 +8,7 @@ import json
 import time
 import numpy as np
 
-predict_settings = {
+model_settings = {
     # Predict settings
     "source" : None,            # (str, optional) source directory for images or videos
     "vid_stride": 1,            # (int) video frame-rate stride
@@ -103,7 +103,7 @@ predict_signature = inspect.signature(model.predict)
 # Step 2: 함수의 기본값들을 딕셔너리로 변환
 for param in predict_signature.parameters.values():
     if param.default is not inspect.Parameter.empty:
-        predict_settings[param.name] = param.default
+        model_settings[param.name] = param.default
 
 
 now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -129,7 +129,7 @@ if data[model_name] != None:
     data[model_name].append(record_data)
 # 이미 있으면 결과 이어서 추가
 else:
-    data['Default Options'] = predict_settings
+    data['Default Options'] = model_settings
     data[model_name] = [record_data]
 
 # JSON 파일 저장
