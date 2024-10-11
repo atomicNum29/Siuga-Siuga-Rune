@@ -223,7 +223,84 @@
             }
         }
     ],
-    "yolov8m": null,
+    "yolov8m": [
+        {
+            "Date": "2024-10-11 15:22:12",
+            "Local Options": [
+                "stream=True"
+            ],
+            "CPU_info": {
+                "CPU Frequency": "scpufreq(current=2200.0, min=0.0, max=2201.0)",
+                "Core Num": "6",
+                "Logical Core Num": "12"
+            },
+            "GPU_info": {
+                "GPU": "NVIDIA GeForce GTX 1060",
+                "GPU Memory": "6144.0MB"
+            },
+            "time": {
+                "inference_time": "0.0378s",
+                "code_time": "0.3076s"
+            }
+        },
+        {
+            "Date": "2024-10-11 15:23:02",
+            "Local Options": [
+                "stream=True"
+            ],
+            "CPU_info": {
+                "CPU Frequency": "scpufreq(current=2200.0, min=0.0, max=2201.0)",
+                "Core Num": "6",
+                "Logical Core Num": "12"
+            },
+            "GPU_info": {
+                "GPU": "NVIDIA GeForce GTX 1060",
+                "GPU Memory": "6144.0MB"
+            },
+            "time": {
+                "inference_time": "0.0274s",
+                "code_time": "0.3004s"
+            }
+        },
+        {
+            "Date": "2024-10-11 15:23:21",
+            "Local Options": [
+                "stream=True"
+            ],
+            "CPU_info": {
+                "CPU Frequency": "scpufreq(current=2200.0, min=0.0, max=2201.0)",
+                "Core Num": "6",
+                "Logical Core Num": "12"
+            },
+            "GPU_info": {
+                "GPU": "NVIDIA GeForce GTX 1060",
+                "GPU Memory": "6144.0MB"
+            },
+            "time": {
+                "inference_time": "0.0275s",
+                "code_time": "0.3268s"
+            }
+        },
+        {
+            "Date": "2024-10-11 17:07:54",
+            "Local Options": [
+                "stream=True"
+            ],
+            "CPU_info": {
+                "CPU Frequency": "scpufreq(current=2200.0, min=0.0, max=2201.0)",
+                "Core Num": "6",
+                "Logical Core Num": "12"
+            },
+            "GPU_info": {
+                "GPU": "NVIDIA GeForce GTX 1060",
+                "GPU Memory": "6144.0MB"
+            },
+            "time": {
+                "inference_time": "0.0365s",
+                "code_time": "0.3111s"
+            }
+        }
+    ],
     "yolov8l": null,
     "yolov8x": null
 }
