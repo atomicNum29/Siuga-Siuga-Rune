@@ -1,5 +1,6 @@
 from ultralytics import YOLO
 from datetime import datetime
+import numpy as np
 import cv2
 import os
 import GPUtil
@@ -7,7 +8,6 @@ import psutil
 import inspect
 import json
 import time
-import numpy as np
 
 model_settings = {
     # Predict settings

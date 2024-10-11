@@ -1,17 +1,49 @@
 {
+    "Default Options": {
+        "source": null,
+        "vid_stride": 1,
+        "stream_buffer": false,
+        "visualize": false,
+        "augment": false,
+        "agnostic_nms": false,
+        "classes": null,
+        "retina_masks": false,
+        "embed": null,
+        "show": false,
+        "save_frames": false,
+        "save_txt": false,
+        "save_conf": false,
+        "save_crop": false,
+        "show_labels": true,
+        "show_conf": true,
+        "show_boxes": true,
+        "line_width": null,
+        "stream": false,
+        "predictor": null
+    },
     "yolov8n": null,
-    "yolov8s": null,
-    "yolov8m": [
+    "yolov8s": [
         {
-            "inference_time": "0.306s",
-            "code_time": "1.024s"
+            "Date": "2024-10-11 14:42:14",
+            "Local Options": [
+                "stream=True"
+            ],
+            "CPU_info": {
+                "CPU Frequency": "scpufreq(current=2200.0, min=0.0, max=2201.0)",
+                "Core Num": "6",
+                "Logical Core Num": "12"
+            },
+            "GPU_info": {
+                "GPU": "NVIDIA GeForce GTX 1060",
+                "GPU Memory": "6144.0MB"
+            },
+            "time": {
+                "inference_time": "0.0181s",
+                "code_time": "1.7078s"
+            }
         }
     ],
-    "yolov8l": [
-        {
-            "inference_time": "0.544s",
-            "code_time": "3.169s"
-        }
-    ],
+    "yolov8m": null,
+    "yolov8l": null,
     "yolov8x": null
 }

@@ -1,12 +1,13 @@
 from ultralytics import YOLO
+from datetime import datetime
+import numpy as np
 import cv2
 import os
+import GPUtil
 import psutil
 import inspect
-from datetime import datetime
 import json
 import time
-import numpy as np
 
 model_settings = {
     # Predict settings
@@ -110,11 +111,12 @@ now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 record_data = { 'Date' : now,
                 'Local Options' : local_options,
                 'CPU_info' : {"CPU Frequency" : f'{psutil.cpu_freq()}', "Core Num" : f'{psutil.cpu_count(logical=False)}', "Logical Core Num" : f'{psutil.cpu_count(logical=True)}'},
+                'GPU_info' : { "GPU" : f'{GPUtil.getGPUs()[0].name}', "GPU Memory" : f'{GPUtil.getGPUs()[0].memoryTotal}MB'},
                 'time' : {'inference_time' : f'{round(inference_time / 1000, 4)}s', 'code_time' : f'{round(detect_time, 4)}s'}}
 print(f"infer : {record_data['time']['inference_time']}, code : {record_data['time']['code_time']}")
 
 # 추론시간 및 코드상 검출 시간 저장
-json_path = os.path.join(output_dir, f'{image_name}_cuda.json')
+json_path = os.path.join(output_dir, f'{image_name}.json')
 
 # JSON 있는 지 확인
 if os.path.exists(json_path):
