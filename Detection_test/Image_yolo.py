@@ -34,7 +34,7 @@ model_settings = {
 
 # Step 1: YOLOv8 모델 로드
 # 0 = nano, 1 = small, 2 = medium, 3 = large, 4 = extra-large
-model_list = ['Default Options', 'yolov8n', 'yolov8s', 'yolov8m', 'yolov8l', 'yolov8x']
+model_list = ['Default Options', 'yolo11n', 'yolo11s', 'yolo11m', 'yolo11l', 'yolo11x']
 model_name = model_list[2]
 current_dir = os.path.dirname(os.path.abspath(__file__))
 model_path = os.path.join(current_dir, f'model/{model_name}.pt')

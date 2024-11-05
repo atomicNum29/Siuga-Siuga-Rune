@@ -2,6 +2,7 @@ from ultralytics import YOLO
 import cv2
 import math
 import numpy as np
+import os
 
 # 비디오 스트림 열기
 url = "http://192.168.0.2:8080/video"
@@ -15,7 +16,9 @@ cap = cv2.VideoCapture(url)
 # out = cv2.VideoWriter('output.avi', cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'), 10, (frame_width, frame_height))
 
 # YOLO 모델을 GPU로 로드
-model = YOLO("model/yolov8m.pt").to('cuda')
+current_dir = os.path.dirname(os.path.abspath(__file__))
+model_path = os.path.join(current_dir, f'model/yolov8m.pt')
+model = YOLO(model_path).to('cuda')
 
 # 클래스 이름 목록
 classNames = ["person", "bicycle", "car", "motorbike", "aeroplane", "bus", "train", "truck", "boat", 
@@ -37,7 +40,7 @@ while True:
         break
 
     # YOLO로 객체 감지 (CUDA 사용)
-    results = model(img, stream=True, stream_buffer=True, conf=0.7)
+    results = model(img, stream=True, conf=0.7, max_det=50, imgsz=480)
 
     # 모델 내부 추론 시간 저장
     for result in results:
