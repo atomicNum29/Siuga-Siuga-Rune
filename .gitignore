@@ -1,1 +1,7 @@
 Detection_test/model/
+Detection_test/runs
+Detection_test/can_data
+
+*.jpg
+*.zip
+*.pt
