@@ -1,25 +1,24 @@
 #include <Arduino.h>
-#include <IntervalTimer.h>
-#include <iostream>
-#include <cmath>
+// #include <IntervalTimer.h>
+// #include <cmath>
 
 /*
 
-초기 각도?
+초기 각도  = 0
+베이스와 수평 = 90
+
 
 */
 
  
 // const double PI = 3.14159265358979323846;
+
+int buffer_sequence;
+
 const double StepAngle = 1.8;
 
-inline double radian(double degree){
-    return degree * PI / 180.0;
-}
 
-inline double degree(double radian){
-    return radian *  180.0/PI;
-}
+
 
 class MOTER{
 
@@ -27,235 +26,245 @@ private:
 
   int step_pin;
   int direction_pin;
-  int delay;
   
-  double current_angle;
   
-  bool step_state;
-  bool direction_state;
-  
-  inline void OneStep(){
+  double current_angle; // 현재 모터 각도
+  double target_angle; // 이동해야할 모터 각도
+  bool move_state;  // 현재각도와 타겟각도가 다르다면 움직여야하므로 1 , 같다면 0 
 
-    digitalWrite(this->step_pin,this->step_state);
-    this -> step_state = !this -> step_state;
-    digitalWrite(this->step_pin,this->step_state);
-    this -> step_state = !this -> step_state;   
-    
-  }
+  bool direction_state;  
+  ////////////////// private - 변수선언 END
 
-  inline void Direction_Set(int _direction){
-    
-    digitalWrite(this->direction_pin,_direction);
 
-  }
 
-public:
+public: 
+
 
   MOTER(int step_pin_num,int direction_pin_num ){
     
     this -> step_pin = step_pin_num;
     this -> direction_pin = direction_pin_num;
 
-    this -> current_angle = 0.0;
-    this -> step_state = 0;
-    this -> direction_state = 0;
-  }
 
-  ~MOTER(){
-  }
+    this -> current_angle = 0.0; // 초기 각도는 상단링크+하단링크와 베이스+플랫폼이 수직인 상태
+    this -> move_state = false; 
+    
+    this -> direction_state = 0;
+  }//////// 생성자 END
+
+
 
   void MoterSetup(){
     pinMode(this->step_pin,OUTPUT);
     pinMode(this->direction_pin,OUTPUT);
     
-  }
+  }///////// Moter set up   END 
 
-  void SetDelay(int _delay){
-    this -> delay = _delay;
-  }
 
-  void Rotate(double _degree){
-    int _step;
+  inline void Direction_Set(int _direction){
+    
+    digitalWrite(this->direction_pin,_direction);
 
-    if(_degree >= 0){
-      _step =  (int)(_degree/StepAngle);
+  }///////// Direction_set END
 
-      this -> Direction_Set(1);
 
-      for(int i = 0; i<_step; i++){
+  void Target_Angel_Set(double angle){
+    
+    this -> target_angle = angle;
+    this -> move_state = true; // 타겟앵글이 변경되면 일단 움직여야 하는 상태로.
 
-        this -> OneStep();  
-        this -> current_angle += StepAngle * (double)this-> direction_state; 
+  }////////// target_angle_set END
 
+  
+
+
+
+  inline void OneStep(){
+
+    digitalWrite(this->step_pin,1);
+    delayMicroseconds(200);
+    
+    digitalWrite(this->step_pin,0);
+    delayMicroseconds(200);
+
+    
+  } /////// oneStep ENd
+
+  void Move_Target(){
+   
+    /*
+    
+    cur  -45  
+    tar  -90
+
+    -90 - (-45)
+    -45
+    
+
+    cur -45
+    tar 0
+    
+    0 - (-45)
+    +45
+
+    */
+    if(this ->move_state){
+
+      if( (target_angle - current_angle)*(target_angle - current_angle) <= 1.8*1.8  ){ // 절대값이 1.8이하로 차이난다면
+        this ->move_state = false; // 움직일 수 있는 각도까지 움직였으면 회전이 필요없는 상태로 변경
+        return;
       }
-    }
-    else{
-
-      _step = (int)(_degree*-1.0/StepAngle);
-      
-      this -> Direction_Set(0);
-
-
-      for(int i = 0; i<_step; i++){
-
-        this -> OneStep();  
-        this -> current_angle -= StepAngle;
+      else if(target_angle - current_angle < 0){
+        this -> Direction_Set(false); // -각도로 ( = 상단링크가 위쪽,펼쳐지는 방향으로)
+        current_angle -= StepAngle;
+      }
+      else{
+        this -> Direction_Set(true); // +각도로 ( = 상단링크가 아래쪽, 오므려지는 방향으로)
+        current_angle += StepAngle;
       }
 
+      OneStep(); //설정된 방향대로 1.8도 이동 
     
     }
 
-  }
+
+
+  }////////// Move_Target END
   
+  bool Move_State_Get(){
+    return this -> move_state;
+  }///////// move_state_get END
+
+
   double Get_Current_Angel(){
     return this -> current_angle;
-  }
+  }////////// Get_Current_Angel END
 
 
-};
+}; /////////모터 클래스정의 끝
 
 class DELTA_ROBOT {
 private:
-    double BASE_SIDE_LEN; // B
-    double PLATFORM_SIDE_LEN; //sp
-    double UPPER_LINK_LEN; // L
-    double LOWER_LINK_LEN; // l
-    double BASE_U_LEN; // U_b
-    double BASE_W_LEN; // W_b
-    double PLATFORM_U_LEN; // U_p
-    double PLATFORM_W_LEN; // W_p
-    double X_OFFSET; // a;
-    double X_SHIFT; // b;
-    double Y_SHIFT; // c;
 
-    MOTER& moter1;
-    MOTER& moter2;
-    MOTER& moter3;
+  MOTER& moter1;
+  MOTER& moter2;
+  MOTER& moter3;
+
 
 public:
     
-    DELTA_ROBOT(MOTER& _moter1,MOTER& _moter2,MOTER& _moter3)
+  DELTA_ROBOT(MOTER& _moter1,MOTER& _moter2,MOTER& _moter3)
     :moter1(_moter1),moter2(_moter2),moter3(_moter3) {}
+  ////////////생성자 END
 
     
-    void setup_length(double B_LEN, double P_LEN, double U_LNE, double L_LEN) {
-        BASE_SIDE_LEN = B_LEN;
-        PLATFORM_SIDE_LEN = P_LEN;
-        UPPER_LINK_LEN = U_LNE;
-        LOWER_LINK_LEN = L_LEN;
-        BASE_U_LEN = B_LEN*sqrt(3)/3; // U_b
-        BASE_W_LEN = B_LEN*sqrt(3)/6; // W_b
-        PLATFORM_U_LEN = P_LEN*sqrt(3)/3; // U_p
-        PLATFORM_W_LEN = P_LEN*sqrt(3)/6; // W_p
-        X_OFFSET = BASE_W_LEN - PLATFORM_U_LEN; //a
-        X_SHIFT = PLATFORM_SIDE_LEN*cos(radian(60)) - BASE_W_LEN*cos(radian(30)); //b
-        Y_SHIFT = PLATFORM_W_LEN - BASE_W_LEN*sin(radian(30)); //c
+  void dleta_target_angle_set(double angle, int sequecne){
+
+    if(sequecne == 0){
+      this -> moter1.Target_Angel_Set(angle);
+    }
+    else if(sequecne == 1){
+      this -> moter2.Target_Angel_Set(angle);
+    }
+    else if( sequecne == 2){
+      this -> moter3.Target_Angel_Set(angle);
+    }
+
+  }///////// dleta_target_anlge END
+     
+
+
+  bool check_move_state(){
 
     
-    }
+    if( moter1.Move_State_Get() + moter2.Move_State_Get() + moter3.Move_State_Get() == 0  ){
 
-    //
-    double Moter1_Angle(double x,double y,double z){
+      return false; // 3개 모두 움직임이 끝난 상태(0 + 0 + 0)인 경우 0 
 
-        double C = X_OFFSET*X_OFFSET + UPPER_LINK_LEN*UPPER_LINK_LEN - LOWER_LINK_LEN*LOWER_LINK_LEN; 
-        
-        double A = -2*UPPER_LINK_LEN*X_OFFSET;
-        
-        double B = 2*z*UPPER_LINK_LEN;
+    } 
 
-        C += x*x + y*y + z*z + 2*y*X_OFFSET;
-        A += -2*UPPER_LINK_LEN*y;
-
-        return degree(2*atan( (-A - sqrt( A*A + B*B - C*C  ))/(C-B)   ));
-    }
-    double Moter2_Angle(double x,double y,double z){
-
-        double C = X_SHIFT*X_SHIFT + Y_SHIFT*Y_SHIFT + UPPER_LINK_LEN*UPPER_LINK_LEN - LOWER_LINK_LEN*LOWER_LINK_LEN; 
-        
-        double A = 2*UPPER_LINK_LEN*( X_SHIFT*cos(radian(30)) + Y_SHIFT*sin(radian(30))   );
-        
-        double B = 2*z*UPPER_LINK_LEN;
-
-        C += x*x + y*y + z*z + 2*y*Y_SHIFT + 2*x*X_SHIFT;
-        A += 2*UPPER_LINK_LEN*( x*cos(radian(30)) + y*sin(radian(30)) );
-
-        return degree(2*atan( (-A - sqrt( A*A + B*B - C*C  ))/(C-B)   ));
-    }
-
-    double Moter3_Angle(double x,double y,double z){
-
-        double C =  X_SHIFT*X_SHIFT + Y_SHIFT*Y_SHIFT + UPPER_LINK_LEN*UPPER_LINK_LEN - LOWER_LINK_LEN*LOWER_LINK_LEN; 
-        
-        double A = 2*UPPER_LINK_LEN*( X_SHIFT*cos(radian(30)) + Y_SHIFT*sin(radian(30)) );
-        
-        double B = 2*z*UPPER_LINK_LEN;
+    return true; // 하나라도 움직여야 하는경우 1
 
 
-        C += x*x + y*y + z*z + 2*y*Y_SHIFT - 2*x*X_SHIFT;
-        A += 2*UPPER_LINK_LEN*( x*cos(radian(30)) + y*sin(radian(30)) );
+  }//////// check_move_state END
 
-        return degree(2*atan( (-A - sqrt( A*A + B*B - C*C  ))/(C-B)   ));
-    }
-    
 
-    void move(double x,double y, double z){
-      //이동
-      double moter1_angel =  Moter1_Angle(x,y,z);
-      double moter2_angel =  Moter2_Angle(x,y,z);
-      double moter3_angel =  Moter3_Angle(x,y,z);
-      
-      this -> moter1.Rotate(moter1_angel);
-      this -> moter2.Rotate(moter2_angel);
-      this -> moter3.Rotate(moter3_angel);
 
-      //원위치
-      moter1_angel = -  moter1.Get_Current_Angel();
-      moter2_angel = -  moter2.Get_Current_Angel();
-      moter3_angel = -  moter3.Get_Current_Angel();
-      
-      this -> moter1.Rotate(moter1_angel);
-      this -> moter2.Rotate(moter2_angel);
-      this -> moter3.Rotate(moter3_angel);
+  void move(){
+
+    while(  this -> check_move_state() ){
+
+        this -> moter1.Move_Target();
+        this -> moter2.Move_Target();
+        this -> moter3.Move_Target();
 
     }
-   
-};
+  }////////// move END
+  
+  
+
+}; ///////DELTA_ROBOT END 
 
 
 
 
 
-MOTER moter1(2,3);
-MOTER moter2(4,5);
-MOTER moter3(6,7);
+MOTER moter1(4,5);
+MOTER moter2(6,7);
+MOTER moter3(8,9);
 DELTA_ROBOT delta_robot(moter1,moter2,moter3);
 
 
 
 void setup() {
+  
   moter1.MoterSetup();
   moter2.MoterSetup();
   moter3.MoterSetup();
-  delta_robot.setup_length(150,75,200,460);
-
+  buffer_sequence  = 0;
   Serial.begin(9600);
-}
-
-void loop() {
-
-  char buf = Serial.read();
-
-  if(buf == 'a'){
-    delta_robot.move(50.0,50.0,-400.0);
-  }
-  else if(buf == 'b'){
-    delta_robot.move(-50.0,50.0,-400.0);
-  }
-  else if(buf == 'c'){
-    delta_robot.move(50.0,-50.0,-400.0);    
-  }
-  else if(buf == 'd'){
-    delta_robot.move(-50.0,-50.0,-400.0);
-  }
 
 }
+
+
+void loop() {}
+
+
+
+void serialEvent()
+{
+	static char buffer[100] = {0}; // 시리얼로 입력된 데이터를 저장하기 위한 공간
+	static int index = -1;		   // buffer의 사용 상태를 알기 위한 변수
+	
+    if (Serial.available()) // 버퍼에 읽을 수 있는 문자가 있다면 실행합니다.
+	{
+		index++;
+		buffer[index] = Serial.read();
+    Serial.println(buffer); 
+
+	}
+
+
+	if (buffer[index] == '\n'){   
+
+    String input(buffer); // 버퍼에 받은 정보를 문자열로 바꾸는 함수를 호출합니다.
+
+    delta_robot.dleta_target_angle_set(input.toFloat(),buffer_sequence); // 순서대로 0,1,2 0(3%3) 1,2,3번 모터에 입력된 각도를 타켓앵글로 설정
+
+
+    buffer_sequence++;
+    
+
+    if(buffer_sequence == 3){ // 각도를 3번 받았으면 이동시작.
+      delta_robot.move(); //TASK로?
+    }
+
+
+    buffer_sequence = (buffer_sequence+1) %3;
+		index = -1; // 한 명령어에 대한 처리가 끝났으므로 buffer 사용 정보 초기화.
+  }
+
+}
+
+
+
