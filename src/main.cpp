@@ -8,6 +8,7 @@
 // Arduino 핀 할당 (예: STEP핀 = 2,4,6, DIR핀 = 3,5,7)
 const int STEP_PIN[STEPPERS_NUM] = {2, 4, 6};
 const int DIR_PIN[STEPPERS_NUM] = {3, 5, 7};
+const int VACUUM_PIN = 15; // 진공 펌프 핀
 
 // AccelStepper 객체 배열 생성: (인터페이스 유형, 스텝핀, 방향핀)
 AccelStepper stepper[STEPPERS_NUM] = {
@@ -61,6 +62,9 @@ void setup()
 {
 	Serial.begin(115200);
 
+	pinMode(VACUUM_PIN, OUTPUT); // 진공 펌프 핀 설정
+	digitalWrite(VACUUM_PIN, LOW); // 진공 펌프 OFF
+
 	for (int i = 0; i < STEPPERS_NUM; i++)
 	{
 		stepper[i].setMaxSpeed(20000.0);	 // 1초에 1000스텝(약 1/200도 × 1000 = 5도/초)
@@ -88,8 +92,8 @@ void GetCommand()
 		command.trim();							// 공백 제거
 		command.toUpperCase();					// 대문자로 변환
 		// Serial.println(command);				 // 수신된 명령어 출력
-		if (command[0] == 'M' || command[0] == 'R')
-		{									  // 명령어가 M, R일 때
+		if (command[0] == 'M' || command[0] == 'R' || command[0] == 'G')
+		{									  // 명령어가 M, R, G일 때
 			tHandleCommand.restartDelayed(0); // 태스크 재시작
 			command_flag = 1;				  // 명령어 수신 플래그 설정
 		}
@@ -126,6 +130,19 @@ void HandleCommand()
 		Serial.print(position[1]);
 		Serial.print(" ");
 		Serial.println(position[2]);
+	}
+	else if (command[0] == 'G')
+	{
+		if (command[1] == '1')
+		{
+			digitalWrite(VACUUM_PIN, HIGH); // 진공 펌프 ON
+			Serial.println("Vacuum Pump ON");
+		}
+		else if (command[1] == '0')
+		{
+			digitalWrite(VACUUM_PIN, LOW); // 진공 펌프 OFF
+			Serial.println("Vacuum Pump OFF");
+		}
 	}
 	command_flag = 0; // 명령어 수신 플래그 초기화
 }
