@@ -115,7 +115,7 @@ void HandleCommand()
 
 		for (int i = 0; i < 3; i++)
 		{
-			while (command[idx_ed] >= '0' && command[idx_ed] <= '9' || command[idx_ed] == '-' || command[idx_ed] == '+')
+			while ((command[idx_ed] >= '0' && command[idx_ed] <= '9') || command[idx_ed] == '-' || command[idx_ed] == '+')
 				idx_ed++;
 			position[i] = command.substring(idx_st, idx_ed).toInt(); // 명령어에서 위치값 추출
 			idx_st = ++idx_ed;
