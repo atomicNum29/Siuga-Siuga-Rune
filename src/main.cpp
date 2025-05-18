@@ -1,18 +1,163 @@
 #include <Arduino.h>
+#include <myQueue.hpp>
+#include <AccelStepper.h>
+#include <TaskScheduler.h>
 
-// put function declarations here:
-int myFunction(int, int);
+#define STEPPERS_NUM 3
 
-void setup() {
-  // put your setup code here, to run once:
-  int result = myFunction(2, 3);
+// Arduino 핀 할당 (예: STEP핀 = 2,4,6, DIR핀 = 3,5,7)
+const int STEP_PIN[STEPPERS_NUM] = {2, 4, 6};
+const int DIR_PIN[STEPPERS_NUM] = {3, 5, 7};
+
+// AccelStepper 객체 배열 생성: (인터페이스 유형, 스텝핀, 방향핀)
+AccelStepper stepper[STEPPERS_NUM] = {
+	AccelStepper(AccelStepper::DRIVER, STEP_PIN[0], DIR_PIN[0]),
+	AccelStepper(AccelStepper::DRIVER, STEP_PIN[1], DIR_PIN[1]),
+	AccelStepper(AccelStepper::DRIVER, STEP_PIN[2], DIR_PIN[2])};
+
+typedef struct COMMAND_DATA
+{
+	char command;
+	long data[3];
+
+	COMMAND_DATA() {}
+
+	COMMAND_DATA(char c)
+	{
+		command = c;
+	}
+
+	COMMAND_DATA(char c, long on_off)
+	{
+		command = c;
+		data[0] = on_off;
+	}
+
+	COMMAND_DATA(char c, long p0, long p1, long p2)
+	{
+		command = c;
+		data[0] = p0;
+		data[1] = p1;
+		data[2] = p2;
+	}
+
+} COMMAND_DATA;
+my_Queue<COMMAND_DATA> command_queue;
+
+void GetCommand(); // 명령어 수신 함수 선언
+String command;	   // 명령어 저장 배열
+volatile int command_flag = 0; // 명령어 수신 플래그
+
+void HandleCommand(); // 명령어 처리 함수 선언
+
+void run();
+
+Scheduler scheduler;												  // 스케줄러 객체 생성
+Task tGetCommand(10, TASK_FOREVER, GetCommand, &scheduler, false);	  // 태스크 객체 생성
+Task tHandleCommand(10, TASK_ONCE, HandleCommand, &scheduler, false); // 태스크 객체 생성
+Task tRun(10, TASK_FOREVER, run, &scheduler, false);				  // 태스크 객체 생성
+
+void setup()
+{
+	Serial.begin(115200);
+
+	for (int i = 0; i < STEPPERS_NUM; i++)
+	{
+		stepper[i].setMaxSpeed(20000.0);	 // 1초에 1000스텝(약 1/200도 × 1000 = 5도/초)
+		stepper[i].setAcceleration(5000.0); // 가속도
+	}
+
+	tGetCommand.restartDelayed(0); // 태스크 활성화
+	tRun.restartDelayed(0);	// 태스크 활성화
 }
 
-void loop() {
-  // put your main code here, to run repeatedly:
+void loop()
+{
+	scheduler.execute(); // 스케줄러 실행
+	// GetCommand(); // 명령어 수신
+	// if (command_flag == 1)
+	// {
+	// 	HandleCommand(); // 명령어 처리
+	// }
+	// run(); // 명령어 실행
+	stepper[0].run();	 // 스텝퍼 실행
+	stepper[1].run();
+	stepper[2].run();
 }
 
-// put function definitions here:
-int myFunction(int x, int y) {
-  return x + y;
+void GetCommand()
+{
+	if (Serial.available() && command_flag == 0)
+	{
+		command = Serial.readStringUntil('\n'); // 명령어 수신
+		command.trim();							// 공백 제거
+		command.toUpperCase();					// 대문자로 변환
+		// Serial.println(command);				 // 수신된 명령어 출력
+		if (command[0] == 'M' || command[0] == 'R')
+		{									  // 명령어가 M, R일 때
+			tHandleCommand.restartDelayed(0); // 태스크 재시작
+			command_flag = 1;				  // 명령어 수신 플래그 설정
+		}
+		else
+		{
+			Serial.println("Invalid Command");
+		}
+	}
+}
+
+void HandleCommand()
+{
+	if (command[0] == 'M' || command[0] == 'R')
+	{
+		long position[3];
+
+		int idx_st = 2;
+		int idx_ed = idx_st;
+
+		for (int i = 0; i < 3; i++)
+		{
+			while (command[idx_ed] >= '0' && command[idx_ed] <= '9' || command[idx_ed] == '-' || command[idx_ed] == '+')
+				idx_ed++;
+			position[i] = command.substring(idx_st, idx_ed).toInt(); // 명령어에서 위치값 추출
+			idx_st = ++idx_ed;
+		}
+
+		command_queue.push(COMMAND_DATA(command[0], position[0], position[1], position[2]));
+		Serial.print("Received Command: ");
+		Serial.print(command[0]);
+		Serial.print(" ");
+		Serial.print(position[0]);
+		Serial.print(" ");
+		Serial.print(position[1]);
+		Serial.print(" ");
+		Serial.println(position[2]);
+	}
+	command_flag = 0; // 명령어 수신 플래그 초기화
+}
+
+void run()
+{
+	if (!command_queue.is_empty())
+	{
+		if (stepper[0].distanceToGo() == 0 && stepper[1].distanceToGo() == 0 && stepper[2].distanceToGo() == 0)
+		{
+			COMMAND_DATA command_data = command_queue.front();
+			command_queue.pop();
+
+			if (command_data.command == 'M')
+			{
+				for (int i = 0; i < STEPPERS_NUM; i++)
+				{
+					stepper[i].moveTo(command_data.data[i]);
+				}
+			}
+			else if (command_data.command == 'R')
+			{
+				for (int i = 0; i < STEPPERS_NUM; i++)
+				{
+					stepper[i].setCurrentPosition(command_data.data[i]);
+				}
+			}
+		}
+	}
 }
