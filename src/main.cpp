@@ -44,8 +44,8 @@ typedef struct COMMAND_DATA
 } COMMAND_DATA;
 my_Queue<COMMAND_DATA> command_queue;
 
-void GetCommand(); // 명령어 수신 함수 선언
-String command;	   // 명령어 저장 배열
+void GetCommand();			   // 명령어 수신 함수 선언
+String command;				   // 명령어 저장 배열
 volatile int command_flag = 0; // 명령어 수신 플래그
 
 void HandleCommand(); // 명령어 처리 함수 선언
@@ -64,23 +64,18 @@ void setup()
 	for (int i = 0; i < STEPPERS_NUM; i++)
 	{
 		stepper[i].setMaxSpeed(20000.0);	 // 1초에 1000스텝(약 1/200도 × 1000 = 5도/초)
-		stepper[i].setAcceleration(5000.0); // 가속도
+		stepper[i].setAcceleration(10000.0); // 가속도
 	}
 
 	tGetCommand.restartDelayed(0); // 태스크 활성화
-	tRun.restartDelayed(0);	// 태스크 활성화
+	tRun.restartDelayed(0);		   // 태스크 활성화
 }
 
 void loop()
 {
 	scheduler.execute(); // 스케줄러 실행
-	// GetCommand(); // 명령어 수신
-	// if (command_flag == 1)
-	// {
-	// 	HandleCommand(); // 명령어 처리
-	// }
-	// run(); // 명령어 실행
-	stepper[0].run();	 // 스텝퍼 실행
+
+	stepper[0].run(); // 스텝퍼 실행
 	stepper[1].run();
 	stepper[2].run();
 }
@@ -137,27 +132,27 @@ void HandleCommand()
 
 void run()
 {
-	if (!command_queue.is_empty())
-	{
-		if (stepper[0].distanceToGo() == 0 && stepper[1].distanceToGo() == 0 && stepper[2].distanceToGo() == 0)
-		{
-			COMMAND_DATA command_data = command_queue.front();
-			command_queue.pop();
+	if (command_queue.is_empty())
+		return; // 큐가 비어있으면 리턴
 
-			if (command_data.command == 'M')
-			{
-				for (int i = 0; i < STEPPERS_NUM; i++)
-				{
-					stepper[i].moveTo(command_data.data[i]);
-				}
-			}
-			else if (command_data.command == 'R')
-			{
-				for (int i = 0; i < STEPPERS_NUM; i++)
-				{
-					stepper[i].setCurrentPosition(command_data.data[i]);
-				}
-			}
+	if (stepper[0].distanceToGo() || stepper[1].distanceToGo() || stepper[2].distanceToGo())
+		return; // 스텝퍼가 이동 중이면 리턴
+
+	COMMAND_DATA command_data = command_queue.front();
+	command_queue.pop();
+
+	if (command_data.command == 'M')
+	{
+		for (int i = 0; i < STEPPERS_NUM; i++)
+		{
+			stepper[i].moveTo(command_data.data[i]);
+		}
+	}
+	else if (command_data.command == 'R')
+	{
+		for (int i = 0; i < STEPPERS_NUM; i++)
+		{
+			stepper[i].setCurrentPosition(command_data.data[i]);
 		}
 	}
 }
