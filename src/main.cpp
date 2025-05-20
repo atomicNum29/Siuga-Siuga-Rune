@@ -2,6 +2,7 @@
 #include <myQueue.hpp>
 #include <AccelStepper.h>
 #include <TaskScheduler.h>
+#include <Servo.h>
 
 #define STEPPERS_NUM 3
 
@@ -9,6 +10,12 @@
 const int STEP_PIN[STEPPERS_NUM] = {2, 4, 6};
 const int DIR_PIN[STEPPERS_NUM] = {3, 5, 7};
 const int VACUUM_PIN = 15; // 진공 펌프 핀
+const int ENDSTOP_PIN1 = 20;
+const int ENDSTOP_PIN2 = 21;
+const int ENDSTOP_PIN3 = 22;
+
+const int SERVO_PIN = 16; // 서보 핀
+Servo myServo;			  // 서보 객체 생성
 
 // AccelStepper 객체 배열 생성: (인터페이스 유형, 스텝핀, 방향핀)
 AccelStepper stepper[STEPPERS_NUM] = {
@@ -62,8 +69,15 @@ void setup()
 {
 	Serial.begin(115200);
 
-	pinMode(VACUUM_PIN, OUTPUT); // 진공 펌프 핀 설정
+	pinMode(VACUUM_PIN, OUTPUT);   // 진공 펌프 핀 설정
 	digitalWrite(VACUUM_PIN, LOW); // 진공 펌프 OFF
+
+	pinMode(ENDSTOP_PIN1, INPUT_PULLUP);
+	pinMode(ENDSTOP_PIN2, INPUT_PULLUP);
+	pinMode(ENDSTOP_PIN3, INPUT_PULLUP);
+
+	myServo.attach(SERVO_PIN); // 서보 핀 설정
+	myServo.write(0);		   // 서보 초기화
 
 	for (int i = 0; i < STEPPERS_NUM; i++)
 	{
@@ -106,7 +120,7 @@ void GetCommand()
 
 void HandleCommand()
 {
-	if (command[0] == 'M' || command[0] == 'R')
+	if (command[0] == 'M')
 	{
 		long position[3];
 
@@ -136,14 +150,21 @@ void HandleCommand()
 		if (command[1] == '1')
 		{
 			digitalWrite(VACUUM_PIN, HIGH); // 진공 펌프 ON
+			myServo.write(90);				// 서보 90도 회전. 밸브 닫힘
 			Serial.println("Vacuum Pump ON");
 		}
 		else if (command[1] == '0')
 		{
 			digitalWrite(VACUUM_PIN, LOW); // 진공 펌프 OFF
+			myServo.write(110);			   // 서보 110도 회전, 밸브 열림
 			Serial.println("Vacuum Pump OFF");
 		}
 	}
+	else if (command[0] == 'R')
+	{
+		command_queue.push(COMMAND_DATA(command[0]));
+	}
+
 	command_flag = 0; // 명령어 수신 플래그 초기화
 }
 
@@ -167,9 +188,23 @@ void run()
 	}
 	else if (command_data.command == 'R')
 	{
-		for (int i = 0; i < STEPPERS_NUM; i++)
+		// 초기 위치 보정, 이 작업 할 땐 다른 건 다 멈춰도 되나? 일단 멈춰도 되는 걸로 간주
+		stepper[0].setSpeed(200);
+		stepper[1].setSpeed(200);
+		stepper[2].setSpeed(200);
+		while (1)
 		{
-			stepper[i].setCurrentPosition(command_data.data[i]);
+			if (digitalRead(ENDSTOP_PIN1))
+				stepper[0].runSpeed();
+			if (digitalRead(ENDSTOP_PIN2))
+				stepper[1].runSpeed();
+			if (digitalRead(ENDSTOP_PIN3))
+				stepper[2].runSpeed();
+			if (!digitalRead(ENDSTOP_PIN1) && !digitalRead(ENDSTOP_PIN2) && !digitalRead(ENDSTOP_PIN3))
+				break;
 		}
+		stepper[0].setCurrentPosition(0);
+		stepper[1].setCurrentPosition(0);
+		stepper[2].setCurrentPosition(0);
 	}
 }
