@@ -65,6 +65,12 @@ void HandleCommand(); // 명령어 처리 함수 선언
 
 void run();
 
+/////////////////////////////
+void SpeedSynchronization(long []);
+#define MAX_SPPED 20000.0
+#define MAX_ACCELEARTION 10000.0
+////////////////////////////////
+
 Scheduler scheduler;												  // 스케줄러 객체 생성
 Task tGetCommand(10, TASK_FOREVER, GetCommand, &scheduler, false);	  // 태스크 객체 생성
 Task tHandleCommand(10, TASK_ONCE, HandleCommand, &scheduler, false); // 태스크 객체 생성
@@ -92,6 +98,9 @@ void setup()
 
 	tGetCommand.restartDelayed(0); // 태스크 활성화
 	tRun.restartDelayed(0);		   // 태스크 활성화
+
+	command_queue.clear(); // 큐 초기화
+	command_queue.push(COMMAND_DATA('R')); // 초기 위치 보정 명령어 추가
 }
 
 void loop()
@@ -155,7 +164,7 @@ void HandleCommand()
 		if (command[1] == '1')
 		{
 			digitalWrite(VACUUM_PIN, HIGH); // 진공 펌프 ON
-			myServo.write(90); // 서보 90도 회전. 밸브 닫힘
+			myServo.write(90);				// 서보 90도 회전. 밸브 닫힘
 			Serial.println("Vacuum Pump ON");
 		}
 		else if (command[1] == '0')
@@ -186,6 +195,7 @@ void run()
 
 	if (command_data.command == 'M')
 	{
+		SpeedSynchronization(command_data.data); // 속도 동기화
 		for (int i = 0; i < STEPPERS_NUM; i++)
 		{
 			stepper[i].moveTo(command_data.data[i]);
@@ -194,11 +204,18 @@ void run()
 	else if (command_data.command == 'R')
 	{
 		// 초기 위치 보정, 이 작업 할 땐 다른 건 다 멈춰도 되나? 일단 멈춰도 되는 걸로 간주
-		stepper[0].setSpeed(200);
-		stepper[1].setSpeed(200);
-		stepper[2].setSpeed(200);
+		stepper[0].setSpeed(800);
+		stepper[1].setSpeed(800);
+		stepper[2].setSpeed(800);
 		while (1)
 		{
+			// Serial.print("\tEndstop1: ");
+			// Serial.print(digitalRead(ENDSTOP_PIN1));
+			// Serial.print(" Endstop2: ");
+			// Serial.print(digitalRead(ENDSTOP_PIN2));
+			// Serial.print(" Endstop3: ");
+			// Serial.println(digitalRead(ENDSTOP_PIN3));
+
 			if (digitalRead(ENDSTOP_PIN1))
 				stepper[0].runSpeed();
 			if (digitalRead(ENDSTOP_PIN2))
@@ -211,5 +228,31 @@ void run()
 		stepper[0].setCurrentPosition(0);
 		stepper[1].setCurrentPosition(0);
 		stepper[2].setCurrentPosition(0);
+	}
+}
+
+void SpeedSynchronization(long position[])
+{
+
+	long max = 0;
+	long distance[3] = {0};
+	for (int i = 0; i < 3; i++)
+	{
+		distance[i] = stepper[i].currentPosition() - position[i]; // 이동거리 계산
+		if (distance[i] < 0)
+			distance[i] *= -1; // 절대값
+		if (max < distance[i])
+			max = distance[i];
+	}
+
+	// if(max == 0) return; //모두 이동이 필요없는 경우....
+
+	for (int i = 0; i < 3; i++)
+	{
+		if (distance[i] > 0)
+		{ //
+			stepper[i].setMaxSpeed(MAX_SPPED * (float)distance[i] / (float)max);
+			stepper[i].setAcceleration(MAX_ACCELEARTION * (float)distance[i] / (float)max);
+		}
 	}
 }
