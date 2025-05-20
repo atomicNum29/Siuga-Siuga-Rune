@@ -33,12 +33,17 @@ typedef struct COMMAND_DATA
 	COMMAND_DATA(char c)
 	{
 		command = c;
+		data[0] = 0;
+		data[1] = 0;
+		data[2] = 0;
 	}
 
 	COMMAND_DATA(char c, long on_off)
 	{
 		command = c;
 		data[0] = on_off;
+		data[1] = 0;
+		data[2] = 0;
 	}
 
 	COMMAND_DATA(char c, long p0, long p1, long p2)
@@ -77,7 +82,7 @@ void setup()
 	pinMode(ENDSTOP_PIN3, INPUT_PULLUP);
 
 	myServo.attach(SERVO_PIN); // 서보 핀 설정
-	myServo.write(0);		   // 서보 초기화
+	myServo.write(110);		   // 서보 초기화
 
 	for (int i = 0; i < STEPPERS_NUM; i++)
 	{
@@ -150,7 +155,7 @@ void HandleCommand()
 		if (command[1] == '1')
 		{
 			digitalWrite(VACUUM_PIN, HIGH); // 진공 펌프 ON
-			myServo.write(90);				// 서보 90도 회전. 밸브 닫힘
+			myServo.write(90); // 서보 90도 회전. 밸브 닫힘
 			Serial.println("Vacuum Pump ON");
 		}
 		else if (command[1] == '0')
