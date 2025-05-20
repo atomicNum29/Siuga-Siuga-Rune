@@ -17,35 +17,97 @@ cos120 = -0.5
 tan30 = 1 / sqrt3
 
 # 역기구학 함수
-def delta_inverse_kinematics(x0, y0, z0):
-	def calc_theta(x0, y0, z0, angle_offset):
-		# 로터리 기준 프레임으로 회전 변환
-		x = x0 * math.cos(angle_offset) + y0 * math.sin(angle_offset)
-		y = -x0 * math.sin(angle_offset) + y0 * math.cos(angle_offset)
-		y -= (R - r)
+# def delta_inverse_kinematics(x0, y0, z0):
+# 	def calc_theta(x0, y0, z0, angle_offset):
+# 		# 로터리 기준 프레임으로 회전 변환
+# 		x = x0 * math.cos(angle_offset) + y0 * math.sin(angle_offset)
+# 		y = -x0 * math.sin(angle_offset) + y0 * math.cos(angle_offset)
+# 		y -= (R - r)
 
-		# 2D 평면에서 역기구학 계산
-		a = (x**2 + y**2 + z0**2 + L**2 - l**2) / (2 * z0)
-		b = (y) / z0
+# 		# 2D 평면에서 역기구학 계산
+# 		# a = (x**2 + y**2 + z0**2 + L**2 - l**2) / (2 * z0)
+# 		d = math.sqrt(x**2 + y**2 + z0**2)
+# 		a = (d**2 + L**2 - l**2) / (2 * d)
+# 		b = (y) / z0
 
-		discriminant = L**2 - (a + b * y)**2 + x**2
-		if discriminant < 0:
-			raise ValueError("해당 위치는 작업 공간을 벗어납니다.")
+# 		discriminant = L**2 - (a + b * y)**2 + x**2
+# 		if discriminant < 0:
+# 			raise ValueError("해당 위치는 작업 공간을 벗어납니다.")
 		
-		yj = (y - a * b - math.sqrt(discriminant)) / (b**2 + 1)
-		zj = a + b * yj
-		theta = math.atan2(-zj, y - yj)
+# 		yj = (y - a * b - math.sqrt(discriminant)) / (b**2 + 1)
+# 		zj = a + b * yj
+# 		theta = math.atan2(-zj, y - yj)
 
-		return math.degrees(theta)
+# 		return math.degrees(theta)
 
-	try:
-		theta1 = calc_theta(x0, y0, z0, 0)
-		theta2 = calc_theta(x0, y0, z0, 2 * pi / 3)
-		theta3 = calc_theta(x0, y0, z0, 4 * pi / 3)
-		return theta1, theta2, theta3
-	except ValueError as e:
-		print(e)
-		return None
+# 	try:
+# 		theta1 = calc_theta(x0, y0, z0, 0)
+# 		theta2 = calc_theta(x0, y0, z0, 2 * pi / 3)
+# 		theta3 = calc_theta(x0, y0, z0, 4 * pi / 3)
+# 		return theta1, theta2, theta3
+# 	except ValueError as e:
+# 		print(e)
+# 		return None
+
+class DeltaInverseKinematics:
+    """
+    R: 베이스 모터 반지름 (mm)
+    r: 말단 플랫폼 반지름 (mm)
+    L: 상부 링크 길이 (mm)
+    l: 하부 링크 길이 (mm)
+    """
+    def __init__(self, R, r, L, l):
+        self.R = R
+        self.r = r
+        self.rf = L
+        self.re = l
+        # 상수
+        self.sqrt3 = math.sqrt(3.0)
+        self.tan30 = 1.0 / self.sqrt3
+        self.sin120 =  self.sqrt3 / 2.0
+        self.cos120 = -0.5
+        # 플랫폼 변환
+        self.f = 2.0 * R / self.tan30
+        self.e = 2.0 * r / self.tan30
+
+    def _angle_yz(self, x0, y0, z0):
+        # 베이스·말단 플랫폼 오프셋
+        y1  = -0.5 * self.f * self.tan30   # = -R
+        y0p =  y0 - 0.5 * self.e * self.tan30  # = y0 - r
+
+        # 이차 방정식 계수
+        a = (x0*x0 + y0p*y0p + z0*z0
+             + self.rf*self.rf - self.re*self.re
+             - y1*y1) / (2.0 * z0)
+        b = (y1 - y0p) / z0
+
+        # 판별식
+        d = -(a + b*y1)**2 + self.rf*self.rf * (b*b + 1.0)
+        if d < 0:
+            return None
+
+        # 하위 분기: -sqrt(d)
+        sd = math.sqrt(d)
+        yj = (y1 - a*b - sd) / (b*b + 1.0)
+        zj = a + b*yj
+
+        # 각도 계산 (라디안→도)
+        theta = math.degrees(math.atan2(-zj, (y1 - yj)))
+        return theta
+
+    def inverse(self, x0, y0, z0):
+        thetas = []
+        for (c, s) in [(1, 0),
+                       (self.cos120,  self.sin120),
+                       (self.cos120, -self.sin120)]:
+            x = x0 * c + y0 * s
+            y = -x0 * s + y0 * c
+            th = self._angle_yz(x, y, z0)
+            if th is None:
+                return None
+            thetas.append(th)
+        return thetas
+
 
 def angle_to_steps(target_angle_deg):
 	# 기본 파라미터
@@ -65,7 +127,9 @@ def angle_to_steps(target_angle_deg):
 	return round(steps)
 
 
-pico = serial.Serial('/dev/tty.usbmodem1401', 115200, timeout=1)
+pico = serial.Serial('/dev/tty.usbmodem11401', 115200, timeout=1)
+ik = DeltaInverseKinematics(R=290.0, r=60.0, L=400.0, l=890.0)
+
 while True:
 	# 엔드이펙터 위치 (x, y, z) 입력
 	# 예시: 엔드이펙터 위치 (x, y, z) 입력
@@ -82,9 +146,13 @@ while True:
 		print(f"g{command[1:]}\n".encode())
 		pico.write(f"g{command[1:]}\n".encode())
 		continue
+	elif command[0] == 'r':
+		print(f"r{command[1:]}\n".encode())
+		pico.write(f"r{command[1:]}\n".encode())
+		continue
 	# x, y, z = map(float, input("엔드이펙터 위치 (x, y, z)를 입력하세요 (예: 0.0 0.0 -600.0): ").split())
 	
-	angles = delta_inverse_kinematics(x, y, z)
+	angles = ik.inverse(x, y, z)
 	if angles:
 		print(f"θ1: {angles[0]:.2f}°, θ2: {angles[1]:.2f}°, θ3: {angles[2]:.2f}°")
 		# 각도를 스텝으로 변환
