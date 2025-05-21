@@ -225,7 +225,8 @@ void run()
 			if (!digitalRead(ENDSTOP_PIN1) && !digitalRead(ENDSTOP_PIN2) && !digitalRead(ENDSTOP_PIN3))
 				break;
 		}
-		stepper[0].setCurrentPosition(0);
+		stepper[0].setCurrentPosition(-600); // 초기 위치 보정
+		stepper[0].moveTo(0);
 		stepper[1].setCurrentPosition(0);
 		stepper[2].setCurrentPosition(0);
 	}
