@@ -9,46 +9,6 @@ r = 60.0   # 하부 베이스 반지름
 L = 400.0  # 상부 링크 길이
 l = 890.0  # 하부 링크 길이
 
-# 모터 위치 (회전 기준점)
-sqrt3 = math.sqrt(3)
-pi = math.pi
-sin120 = sqrt3 / 2
-cos120 = -0.5
-tan30 = 1 / sqrt3
-
-# 역기구학 함수
-# def delta_inverse_kinematics(x0, y0, z0):
-# 	def calc_theta(x0, y0, z0, angle_offset):
-# 		# 로터리 기준 프레임으로 회전 변환
-# 		x = x0 * math.cos(angle_offset) + y0 * math.sin(angle_offset)
-# 		y = -x0 * math.sin(angle_offset) + y0 * math.cos(angle_offset)
-# 		y -= (R - r)
-
-# 		# 2D 평면에서 역기구학 계산
-# 		# a = (x**2 + y**2 + z0**2 + L**2 - l**2) / (2 * z0)
-# 		d = math.sqrt(x**2 + y**2 + z0**2)
-# 		a = (d**2 + L**2 - l**2) / (2 * d)
-# 		b = (y) / z0
-
-# 		discriminant = L**2 - (a + b * y)**2 + x**2
-# 		if discriminant < 0:
-# 			raise ValueError("해당 위치는 작업 공간을 벗어납니다.")
-		
-# 		yj = (y - a * b - math.sqrt(discriminant)) / (b**2 + 1)
-# 		zj = a + b * yj
-# 		theta = math.atan2(-zj, y - yj)
-
-# 		return math.degrees(theta)
-
-# 	try:
-# 		theta1 = calc_theta(x0, y0, z0, 0)
-# 		theta2 = calc_theta(x0, y0, z0, 2 * pi / 3)
-# 		theta3 = calc_theta(x0, y0, z0, 4 * pi / 3)
-# 		return theta1, theta2, theta3
-# 	except ValueError as e:
-# 		print(e)
-# 		return None
-
 class DeltaInverseKinematics:
     """
     R: 베이스 모터 반지름 (mm)
@@ -131,6 +91,9 @@ pico = serial.Serial('/dev/tty.usbmodem11401', 115200, timeout=1)
 ik = DeltaInverseKinematics(R=290.0, r=60.0, L=400.0, l=890.0)
 
 while True:
+	recieve = pico.readline()
+	if recieve:
+		print(recieve.decode().strip())
 	# 엔드이펙터 위치 (x, y, z) 입력
 	# 예시: 엔드이펙터 위치 (x, y, z) 입력
 	# x, y, z = 0.0, 0.0, -600.0
