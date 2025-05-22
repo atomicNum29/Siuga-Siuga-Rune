@@ -24,6 +24,16 @@ public:
 		ridx = (ridx + 1) % size; // 뒤 포인터 이동
 	}
 
+	void push_front(T data) // 큐의 앞에 데이터 추가
+	{
+		if ((ridx + 1) % size == fidx) // 큐가 가득 찼는지 확인
+		{
+			return; // 큐가 가득 차면 추가하지 않음
+		}
+		fidx = (fidx - 1 + size) % size; // 앞 포인터 이동
+		arr[fidx] = data;			   // 데이터 추가
+	}
+
 	void pop() // 큐에서 데이터 제거
 	{
 		if (fidx == ridx) // 큐가 비어있으면
