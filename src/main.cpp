@@ -65,11 +65,16 @@ void HandleCommand(); // 명령어 처리 함수 선언
 
 void run();
 
-/////////////////////////////
-void SpeedSynchronization(long []);
+///////////////////////////// 속도 동기화
+void SpeedSynchronization(long[]);
 #define MAX_SPPED 20000.0
 #define MAX_ACCELEARTION 10000.0
 ////////////////////////////////
+
+////////////////////////인터럽트
+const int VACCUM_INTERRUPT_PIN = 18;
+void VaccumInterrupt();
+///////////////
 
 Scheduler scheduler;												  // 스케줄러 객체 생성
 Task tGetCommand(10, TASK_FOREVER, GetCommand, &scheduler, false);	  // 태스크 객체 생성
@@ -99,8 +104,13 @@ void setup()
 	tGetCommand.restartDelayed(0); // 태스크 활성화
 	tRun.restartDelayed(0);		   // 태스크 활성화
 
-	command_queue.clear(); // 큐 초기화
+	command_queue.clear();				   // 큐 초기화
 	command_queue.push(COMMAND_DATA('R')); // 초기 위치 보정 명령어 추가
+
+	// pinMode(VACCUM_INTERRUPT_PIN, INPUT_PULLUP); // 인터럽트
+	pinMode(VACCUM_INTERRUPT_PIN, INPUT); // 인터럽트 핀 설정
+	// attachInterrupt(digitalPinToInterrupt(VACCUM_INTERRUPT_PIN), VaccumInterrupt, FALLING);
+	// detachInterrupt(digitalPinToInterrupt(VACCUM_INTERRUPT_PIN));
 }
 
 void loop()
@@ -163,15 +173,11 @@ void HandleCommand()
 	{
 		if (command[1] == '1')
 		{
-			digitalWrite(VACUUM_PIN, HIGH); // 진공 펌프 ON
-			myServo.write(90);				// 서보 90도 회전. 밸브 닫힘
-			Serial.println("Vacuum Pump ON");
+			command_queue.push(COMMAND_DATA(command[0], 1));
 		}
 		else if (command[1] == '0')
 		{
-			digitalWrite(VACUUM_PIN, LOW); // 진공 펌프 OFF
-			myServo.write(110);			   // 서보 110도 회전, 밸브 열림
-			Serial.println("Vacuum Pump OFF");
+			command_queue.push(COMMAND_DATA(command[0], 0));
 		}
 	}
 	else if (command[0] == 'R')
@@ -209,12 +215,14 @@ void run()
 		stepper[2].setSpeed(800);
 		while (1)
 		{
-			// Serial.print("\tEndstop1: ");
-			// Serial.print(digitalRead(ENDSTOP_PIN1));
-			// Serial.print(" Endstop2: ");
-			// Serial.print(digitalRead(ENDSTOP_PIN2));
-			// Serial.print(" Endstop3: ");
-			// Serial.println(digitalRead(ENDSTOP_PIN3));
+			Serial.print("ADC: ");
+			Serial.print(analogRead(26));
+			Serial.print("\tEndstop1: ");
+			Serial.print(digitalRead(ENDSTOP_PIN1));
+			Serial.print(" Endstop2: ");
+			Serial.print(digitalRead(ENDSTOP_PIN2));
+			Serial.print(" Endstop3: ");
+			Serial.println(digitalRead(ENDSTOP_PIN3));
 
 			if (digitalRead(ENDSTOP_PIN1))
 				stepper[0].runSpeed();
@@ -227,8 +235,32 @@ void run()
 		}
 		stepper[0].setCurrentPosition(-600); // 초기 위치 보정
 		stepper[0].moveTo(0);
-		stepper[1].setCurrentPosition(0);
-		stepper[2].setCurrentPosition(0);
+		stepper[1].setCurrentPosition(-600);
+		stepper[1].moveTo(0);
+		stepper[2].setCurrentPosition(-600);
+		stepper[2].moveTo(0);
+		// stepper[0].setCurrentPosition(0);
+		// stepper[1].setCurrentPosition(0);
+		// stepper[2].setCurrentPosition(0);
+	}
+	else if (command_data.command == 'G')
+	{
+		if (command_data.data[0] == 1)
+		{
+			digitalWrite(VACUUM_PIN, HIGH); // 진공 펌프 ON
+			myServo.write(90);				// 서보 90도 회전. 밸브 닫힘
+			Serial.println("Vacuum Pump ON");
+			delay(10);
+			attachInterrupt(digitalPinToInterrupt(VACCUM_INTERRUPT_PIN), VaccumInterrupt, FALLING);
+		}
+		else if (command_data.data[0] == 0)
+		{
+			detachInterrupt(digitalPinToInterrupt(VACCUM_INTERRUPT_PIN));
+			delayMicroseconds(100);
+			digitalWrite(VACUUM_PIN, LOW); // 진공 펌프 OFF
+			myServo.write(110);			   // 서보 110도 회전, 밸브 열림
+			Serial.println("Vacuum Pump OFF");
+		}
 	}
 }
 
@@ -256,4 +288,16 @@ void SpeedSynchronization(long position[])
 			stepper[i].setAcceleration(MAX_ACCELEARTION * (float)distance[i] / (float)max);
 		}
 	}
+}
+
+void VaccumInterrupt()
+{
+	for (int i = 0; i < STEPPERS_NUM; i++)
+	{
+		stepper[i].setSpeed(0);
+		stepper[i].moveTo(stepper[i].currentPosition()); // 현재 위치를 목표 포지션으로 설정
+	}
+
+	command_queue.push_front(COMMAND_DATA('M', stepper[0].currentPosition() + 200,
+										  stepper[1].currentPosition() + 200, stepper[2].currentPosition() + 200)); // 목표 포지션 설정
 }
