@@ -2,20 +2,20 @@
 #include <myQueue.hpp>
 #include <AccelStepper.h>
 #include <TaskScheduler.h>
-#include <Servo.h>
+#include <PWMServo.h>
 
 #define STEPPERS_NUM 3
 
 // Arduino 핀 할당 (예: STEP핀 = 2,4,6, DIR핀 = 3,5,7)
 const int STEP_PIN[STEPPERS_NUM] = {2, 4, 6};
 const int DIR_PIN[STEPPERS_NUM] = {3, 5, 7};
-const int VACUUM_PIN = 15; // 진공 펌프 핀
-const int ENDSTOP_PIN1 = 20;
-const int ENDSTOP_PIN2 = 21;
-const int ENDSTOP_PIN3 = 22;
+const int VACUUM_PIN = 24; // 진공 펌프 핀
+const int ENDSTOP_PIN1 = 33;
+const int ENDSTOP_PIN2 = 34;
+const int ENDSTOP_PIN3 = 35;
 
-const int SERVO_PIN = 16; // 서보 핀
-Servo myServo;			  // 서보 객체 생성
+const int SERVO_PIN = 23; // 서보 핀
+PWMServo myServo;		  // 서보 객체 생성
 
 // AccelStepper 객체 배열 생성: (인터페이스 유형, 스텝핀, 방향핀)
 AccelStepper stepper[STEPPERS_NUM] = {
@@ -72,14 +72,17 @@ void SpeedSynchronization(long[]);
 ////////////////////////////////
 
 ////////////////////////인터럽트
-const int VACCUM_INTERRUPT_PIN = 18;
+const int VACCUM_INTERRUPT_PIN = 41;
 void VaccumInterrupt();
 ///////////////
+
+void blink(); // LED 깜빡임 함수 선언
 
 Scheduler scheduler;												  // 스케줄러 객체 생성
 Task tGetCommand(10, TASK_FOREVER, GetCommand, &scheduler, false);	  // 태스크 객체 생성
 Task tHandleCommand(10, TASK_ONCE, HandleCommand, &scheduler, false); // 태스크 객체 생성
 Task tRun(10, TASK_FOREVER, run, &scheduler, false);				  // 태스크 객체 생성
+Task tBlink(1000, TASK_FOREVER, blink, &scheduler, false);			  // 태스크 객체 생성
 
 void setup()
 {
@@ -101,16 +104,19 @@ void setup()
 		stepper[i].setAcceleration(10000.0); // 가속도
 	}
 
-	tGetCommand.restartDelayed(0); // 태스크 활성화
-	tRun.restartDelayed(0);		   // 태스크 활성화
-
 	command_queue.clear();				   // 큐 초기화
 	command_queue.push(COMMAND_DATA('R')); // 초기 위치 보정 명령어 추가
 
-	// pinMode(VACCUM_INTERRUPT_PIN, INPUT_PULLUP); // 인터럽트
-	pinMode(VACCUM_INTERRUPT_PIN, INPUT); // 인터럽트 핀 설정
+	pinMode(LED_BUILTIN, OUTPUT);				 // 내장 LED 핀 설정
+	digitalWrite(LED_BUILTIN, HIGH);			 // LED 초기화
+	pinMode(VACCUM_INTERRUPT_PIN, INPUT_PULLUP); // 인터럽트 핀 설정
+
 	// attachInterrupt(digitalPinToInterrupt(VACCUM_INTERRUPT_PIN), VaccumInterrupt, FALLING);
 	// detachInterrupt(digitalPinToInterrupt(VACCUM_INTERRUPT_PIN));
+
+	tGetCommand.restartDelayed(0); // 태스크 활성화
+	tRun.restartDelayed(0);		   // 태스크 활성화
+	tBlink.restartDelayed(0);	   // 태스크 활성화
 }
 
 void loop()
@@ -215,14 +221,14 @@ void run()
 		stepper[2].setSpeed(800);
 		while (1)
 		{
-			Serial.print("ADC: ");
-			Serial.print(analogRead(26));
-			Serial.print("\tEndstop1: ");
-			Serial.print(digitalRead(ENDSTOP_PIN1));
-			Serial.print(" Endstop2: ");
-			Serial.print(digitalRead(ENDSTOP_PIN2));
-			Serial.print(" Endstop3: ");
-			Serial.println(digitalRead(ENDSTOP_PIN3));
+			// Serial.print("ADC: ");
+			// Serial.print(analogRead(26));
+			// Serial.print("\tEndstop1: ");
+			// Serial.print(digitalRead(ENDSTOP_PIN1));
+			// Serial.print(" Endstop2: ");
+			// Serial.print(digitalRead(ENDSTOP_PIN2));
+			// Serial.print(" Endstop3: ");
+			// Serial.println(digitalRead(ENDSTOP_PIN3));
 
 			if (digitalRead(ENDSTOP_PIN1))
 				stepper[0].runSpeed();
@@ -234,10 +240,10 @@ void run()
 				break;
 		}
 		stepper[0].setCurrentPosition(-600); // 초기 위치 보정
-		stepper[0].moveTo(0);
 		stepper[1].setCurrentPosition(-600);
-		stepper[1].moveTo(0);
 		stepper[2].setCurrentPosition(-600);
+		stepper[0].moveTo(0);
+		stepper[1].moveTo(0);
 		stepper[2].moveTo(0);
 		// stepper[0].setCurrentPosition(0);
 		// stepper[1].setCurrentPosition(0);
@@ -300,4 +306,11 @@ void VaccumInterrupt()
 
 	command_queue.push_front(COMMAND_DATA('M', stepper[0].currentPosition() + 200,
 										  stepper[1].currentPosition() + 200, stepper[2].currentPosition() + 200)); // 목표 포지션 설정
+}
+
+void blink()
+{
+	static int ledState = LOW;
+	digitalWrite(LED_BUILTIN, ledState); // LED 상태 토글
+	ledState = !ledState;				 // 다음 상태로 변경
 }
