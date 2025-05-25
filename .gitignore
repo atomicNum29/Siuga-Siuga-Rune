@@ -7,3 +7,6 @@
 .DS_Store
 
 IK-python/.venv
+IK-python/__pycache__
+*.pth
+*.csv

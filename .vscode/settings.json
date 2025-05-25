@@ -1,0 +1,6 @@
+{
+	"files.associations": {
+		"asdf": "plaintext",
+		"*.tpp": "cpp"
+	}
+}
