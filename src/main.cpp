@@ -2,20 +2,20 @@
 #include <myQueue.hpp>
 #include <AccelStepper.h>
 #include <TaskScheduler.h>
-#include <PWMServo.h>
+#include <Servo.h>
 
 #define STEPPERS_NUM 3
 
 // Arduino 핀 할당 (예: STEP핀 = 2,4,6, DIR핀 = 3,5,7)
 const int STEP_PIN[STEPPERS_NUM] = {2, 4, 6};
 const int DIR_PIN[STEPPERS_NUM] = {3, 5, 7};
-const int VACUUM_PIN = 24; // 진공 펌프 핀
-const int ENDSTOP_PIN1 = 33;
-const int ENDSTOP_PIN2 = 34;
-const int ENDSTOP_PIN3 = 35;
+const int VACUUM_PIN = 15; // 진공 펌프 핀
+const int ENDSTOP_PIN1 = 16;
+const int ENDSTOP_PIN2 = 17;
+const int ENDSTOP_PIN3 = 18;
 
-const int SERVO_PIN = 23; // 서보 핀
-PWMServo myServo;		  // 서보 객체 생성
+const int SERVO_PIN = 13; // 서보 핀
+Servo myServo;		  // 서보 객체 생성
 
 // AccelStepper 객체 배열 생성: (인터페이스 유형, 스텝핀, 방향핀)
 AccelStepper stepper[STEPPERS_NUM] = {
@@ -72,7 +72,7 @@ void SpeedSynchronization(long[]);
 ////////////////////////////////
 
 ////////////////////////인터럽트
-const int VACCUM_INTERRUPT_PIN = 41;
+const int VACCUM_INTERRUPT_PIN = 9;
 void VaccumInterrupt();
 ///////////////
 
@@ -81,7 +81,7 @@ void blink(); // LED 깜빡임 함수 선언
 Scheduler scheduler;												  // 스케줄러 객체 생성
 Task tGetCommand(10, TASK_FOREVER, GetCommand, &scheduler, false);	  // 태스크 객체 생성
 Task tHandleCommand(10, TASK_ONCE, HandleCommand, &scheduler, false); // 태스크 객체 생성
-Task tRun(10, TASK_FOREVER, run, &scheduler, false);				  // 태스크 객체 생성
+Task tRun(0, TASK_FOREVER, run, &scheduler, false);				  // 태스크 객체 생성
 Task tBlink(1000, TASK_FOREVER, blink, &scheduler, false);			  // 태스크 객체 생성
 
 void setup()
@@ -111,7 +111,7 @@ void setup()
 	digitalWrite(LED_BUILTIN, HIGH);			 // LED 초기화
 	pinMode(VACCUM_INTERRUPT_PIN, INPUT_PULLUP); // 인터럽트 핀 설정
 
-	// attachInterrupt(digitalPinToInterrupt(VACCUM_INTERRUPT_PIN), VaccumInterrupt, FALLING);
+	// attachInterrupt(digitalPinToPinName(VACCUM_INTERRUPT_PIN), VaccumInterrupt, FALLING);
 	// detachInterrupt(digitalPinToInterrupt(VACCUM_INTERRUPT_PIN));
 
 	tGetCommand.restartDelayed(0); // 태스크 활성화
@@ -207,7 +207,7 @@ void run()
 
 	if (command_data.command == 'M')
 	{
-		SpeedSynchronization(command_data.data); // 속도 동기화
+		// SpeedSynchronization(command_data.data); // 속도 동기화
 		for (int i = 0; i < STEPPERS_NUM; i++)
 		{
 			stepper[i].moveTo(command_data.data[i]);
@@ -221,8 +221,6 @@ void run()
 		stepper[2].setSpeed(800);
 		while (1)
 		{
-			// Serial.print("ADC: ");
-			// Serial.print(analogRead(26));
 			// Serial.print("\tEndstop1: ");
 			// Serial.print(digitalRead(ENDSTOP_PIN1));
 			// Serial.print(" Endstop2: ");
@@ -300,8 +298,8 @@ void VaccumInterrupt()
 {
 	for (int i = 0; i < STEPPERS_NUM; i++)
 	{
-		stepper[i].setSpeed(0);
 		stepper[i].moveTo(stepper[i].currentPosition()); // 현재 위치를 목표 포지션으로 설정
+		stepper[i].setSpeed(0);
 	}
 
 	command_queue.push_front(COMMAND_DATA('M', stepper[0].currentPosition() + 200,
