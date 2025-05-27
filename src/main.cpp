@@ -15,7 +15,7 @@ const int ENDSTOP_PIN2 = 17;
 const int ENDSTOP_PIN3 = 18;
 
 const int SERVO_PIN = 13; // 서보 핀
-Servo myServo;		  // 서보 객체 생성
+Servo myServo;			  // 서보 객체 생성
 
 // AccelStepper 객체 배열 생성: (인터페이스 유형, 스텝핀, 방향핀)
 AccelStepper stepper[STEPPERS_NUM] = {
@@ -81,7 +81,7 @@ void blink(); // LED 깜빡임 함수 선언
 Scheduler scheduler;												  // 스케줄러 객체 생성
 Task tGetCommand(10, TASK_FOREVER, GetCommand, &scheduler, false);	  // 태스크 객체 생성
 Task tHandleCommand(10, TASK_ONCE, HandleCommand, &scheduler, false); // 태스크 객체 생성
-Task tRun(0, TASK_FOREVER, run, &scheduler, false);				  // 태스크 객체 생성
+Task tRun(0, TASK_FOREVER, run, &scheduler, false);					  // 태스크 객체 생성
 Task tBlink(1000, TASK_FOREVER, blink, &scheduler, false);			  // 태스크 객체 생성
 
 void setup()
@@ -119,9 +119,16 @@ void setup()
 	tBlink.restartDelayed(0);	   // 태스크 활성화
 }
 
+volatile bool fs = false;
 void loop()
 {
 	scheduler.execute(); // 스케줄러 실행
+
+	if (fs)
+	{
+		Serial.println("FS");
+		fs = false;
+	}
 
 	stepper[0].run(); // 스텝퍼 실행
 	stepper[1].run();
@@ -136,7 +143,7 @@ void GetCommand()
 		command.trim();							// 공백 제거
 		command.toUpperCase();					// 대문자로 변환
 		// Serial.println(command);				 // 수신된 명령어 출력
-		if (command[0] == 'M' || command[0] == 'R' || command[0] == 'G')
+		if (command[0] == 'M' || command[0] == 'R' || command[0] == 'G' || command[0] == 'S')
 		{									  // 명령어가 M, R, G일 때
 			tHandleCommand.restartDelayed(0); // 태스크 재시작
 			command_flag = 1;				  // 명령어 수신 플래그 설정
@@ -166,14 +173,24 @@ void HandleCommand()
 		}
 
 		command_queue.push(COMMAND_DATA(command[0], position[0], position[1], position[2]));
-		Serial.print("Received Command: ");
-		Serial.print(command[0]);
-		Serial.print(" ");
-		Serial.print(position[0]);
-		Serial.print(" ");
-		Serial.print(position[1]);
-		Serial.print(" ");
-		Serial.println(position[2]);
+	}
+	else if (command[0] == 'S')
+	{
+		// 속도 변경 명령어 처리
+		long speed[3];
+
+		int idx_st = 2;
+		int idx_ed = idx_st;
+
+		for (int i = 0; i < 3; i++)
+		{
+			while ((command[idx_ed] >= '0' && command[idx_ed] <= '9') || command[idx_ed] == '-' || command[idx_ed] == '+')
+				idx_ed++;
+			speed[i] = command.substring(idx_st, idx_ed).toInt(); // 명령어에서 속도값 추출
+			idx_st = ++idx_ed;
+		}
+
+		command_queue.push(COMMAND_DATA(command[0], speed[0], speed[1], speed[2]));
 	}
 	else if (command[0] == 'G')
 	{
@@ -211,6 +228,15 @@ void run()
 		for (int i = 0; i < STEPPERS_NUM; i++)
 		{
 			stepper[i].moveTo(command_data.data[i]);
+		}
+	}
+	else if (command_data.command == 'S')
+	{
+		// 속도 변경 명령어 처리
+		for (int i = 0; i < STEPPERS_NUM; i++)
+		{
+			stepper[i].setMaxSpeed(command_data.data[i]);
+			stepper[i].setAcceleration(command_data.data[i] / 2.0); // 가속도는 속도의 절반으로 설정
 		}
 	}
 	else if (command_data.command == 'R')
@@ -301,7 +327,7 @@ void VaccumInterrupt()
 		stepper[i].moveTo(stepper[i].currentPosition()); // 현재 위치를 목표 포지션으로 설정
 		stepper[i].setSpeed(0);
 	}
-
+	fs = true; // 플래그 설정
 	command_queue.push_front(COMMAND_DATA('M', stepper[0].currentPosition() + 200,
 										  stepper[1].currentPosition() + 200, stepper[2].currentPosition() + 200)); // 목표 포지션 설정
 }
