@@ -9,4 +9,7 @@
 IK-python/.venv
 IK-python/__pycache__
 *.pth
+*.pkl
 *.csv
+
+*.mat
