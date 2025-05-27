@@ -254,6 +254,17 @@ while True:
 		x = float(x)
 		y = float(y)
 		z = float(z)
+	elif command[0] == 's':
+		data = command.split(' ')
+		x = y = z = 0.0
+		if len(data) == 2:
+			x = y = z = int(data[1])
+		elif len(data) == 4:
+			x = int(data[1])
+			y = int(data[2])
+			z = int(data[3])
+		mcu.write(f"s {x} {y} {z}\n".encode())
+		continue
 	elif command[0] == 'g':
 		print(f"g{command[1:]}\n".encode())
 		mcu.write(f"g{command[1:]}\n".encode())
