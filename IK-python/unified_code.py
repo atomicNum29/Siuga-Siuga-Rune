@@ -2,6 +2,95 @@ import torch
 import serial
 import math
 import time
+import numpy as np
+import joblib
+
+class CameraRobotPredictor:
+    def __init__(self, model_path):
+        """
+        저장된 모델을 로드하여 좌표 변환을 수행하는 클래스
+        
+        Parameters:
+        model_path: 저장된 모델 파일 경로 (.pkl)
+        """
+        self.load_model(model_path)
+    
+    def load_model(self, model_path):
+        """저장된 모델을 로드"""
+        try:
+            model_data = joblib.load(model_path)
+            self.model = model_data['model']
+            self.poly_features = model_data['poly_features']
+            self.scaler_input = model_data['scaler_input']
+            self.scaler_output = model_data['scaler_output']
+            self.degree = model_data['degree']
+            self.alpha = model_data['alpha']
+            self.use_ridge = model_data['use_ridge']
+            self.is_fitted = model_data['is_fitted']
+            
+            print(f"모델 로드 성공!")
+            print(f"다항식 차수: {self.degree}")
+            print(f"정규화 파라미터: {self.alpha}")
+            print(f"Ridge 회귀: {self.use_ridge}")
+            
+        except FileNotFoundError:
+            print(f"모델 파일을 찾을 수 없습니다: {model_path}")
+            raise
+        except Exception as e:
+            print(f"모델 로드 중 오류 발생: {e}")
+            raise
+    
+    def predict(self, camera_x, camera_y, camera_z):
+        """
+        카메라 좌표를 로봇 좌표로 변환
+        
+        Parameters:
+        camera_x, camera_y, camera_z: 카메라 좌표
+        
+        Returns:
+        robot_x, robot_y, robot_z: 로봇 좌표
+        """
+        if not self.is_fitted:
+            raise ValueError("모델이 학습되지 않았습니다.")
+        
+        # 입력 데이터 준비
+        camera_coords = np.array([[camera_x, camera_y, camera_z]])
+        
+        # 전처리: 정규화
+        camera_scaled = self.scaler_input.transform(camera_coords)
+        
+        # 다항식 특성 생성
+        camera_poly = self.poly_features.transform(camera_scaled)
+        
+        # 예측
+        robot_scaled = self.model.predict(camera_poly)
+        
+        # 역정규화하여 원본 스케일로 복원
+        robot_coords = self.scaler_output.inverse_transform(robot_scaled)
+        
+        return robot_coords[0]  # [robot_x, robot_y, robot_z] 반환
+    
+    def predict_batch(self, camera_coords_list):
+        """
+        여러 카메라 좌표를 한번에 변환
+        
+        Parameters:
+        camera_coords_list: [[x1,y1,z1], [x2,y2,z2], ...] 형태의 리스트
+        
+        Returns:
+        robot_coords_list: [[x1,y1,z1], [x2,y2,z2], ...] 형태의 배열
+        """
+        camera_coords = np.array(camera_coords_list)
+        
+        # 전처리
+        camera_scaled = self.scaler_input.transform(camera_coords)
+        camera_poly = self.poly_features.transform(camera_scaled)
+        
+        # 예측
+        robot_scaled = self.model.predict(camera_poly)
+        robot_coords = self.scaler_output.inverse_transform(robot_scaled)
+        
+        return robot_coords
 
 # 모델 클래스 정의 (저장할 때 쓴 것과 동일하게)
 class CoordTransformer(torch.nn.Module):
@@ -102,13 +191,19 @@ class DeltaRobot:
 	def send_command_to(self, pico):
 		# 명령어(동작 각도)를 시리얼 포트로 전송
 		steps = [-self.angle_to_steps(angle) for angle in self.angles]
+		# if steps[0] > 1500 or steps[1] > 1500 or steps[2] > 1500:
+		# 	print("각도가 너무 큽니다. 작업 공간을 벗어났습니다.")
+		# 	return
+		# elif steps[0] < -5500 or steps[1] < -5500 or steps[2] < -5500:
+		# 	print("각도가 너무 작습니다. 작업 공간을 벗어났습니다.")
+		# 	return
 		command = f"m {steps[0]} {steps[1]} {steps[2]}\n".encode()
 		pico.write(command)
 
 
 
 # 모델 불러오기
-model_load_path = "best_model-40.pth"
+model_load_path = "best_model-new.pth"
 model = CoordTransformer()
 model.load_state_dict(torch.load(model_load_path))
 model.eval()
@@ -147,15 +242,11 @@ def auto_connect(baudrate=115200, timeout=1):
 mcu = auto_connect()
 myDeltaRobot = DeltaRobot(R=300.0, r=60.0, L=400.0, l=890.0)
 
+# model_path = "camera_robot_transform.pkl"
+# predictor = CameraRobotPredictor(model_path)
 
 while True:
-	recieve = mcu.readline()
-	if recieve:
-		print(recieve.decode().strip())
-	# 엔드이펙터 위치 (x, y, z) 입력
-	# 예시: 엔드이펙터 위치 (x, y, z) 입력
-	# x, y, z = 0.0, 0.0, -600.0
-	# x, y, z = input("엔드이펙터 위치 (x, y, z)를 입력하세요 (예: 0.0 0.0 -600.0): ").split(' ')
+
 	command = input("명령어를 입력하세요 (예: m 0 0 0): ")
 	if command[0] == 'm':
 		# 명령어를 파싱하여 x, y, z 좌표 추출
@@ -177,10 +268,10 @@ while True:
 		camera_x = float(camera_x)
 		camera_y = float(camera_y)
 		camera_z = float(camera_z)
+
 		x, y, z = predict_robot_coords(camera_x, camera_y, camera_z)
 		print(f"예측된 로봇 좌표: x={x:.3f}, y={y:.3f}, z={z:.3f}")
 
-	# x, y, z = map(float, input("엔드이펙터 위치 (x, y, z)를 입력하세요 (예: 0.0 0.0 -600.0): ").split())
 	
 	angles = myDeltaRobot.inverse(x, y, z)
 	if angles:
@@ -192,14 +283,3 @@ while True:
 	else:
 		print("작업 공간을 벗어났습니다.")
 
-
-# # 예시: 사용자 입력 받기
-# camera_x = float(input("카메라 X 좌표 입력: "))
-# camera_y = float(input("카메라 Y 좌표 입력: "))
-# camera_z = float(input("카메라 Z 좌표 입력: "))
-
-# robot_x, robot_y, robot_z = predict_robot_coords(camera_x, camera_y, camera_z)
-
-# print(f"예측된 로봇팔 좌표: x={robot_x:.3f}, y={robot_y:.3f}, z={robot_z:.3f}")
-# myDeltaRobot.inverse(robot_x, robot_y, robot_z)
-# myDeltaRobot.send_command_to(pico)
