@@ -76,12 +76,15 @@ const int VACCUM_INTERRUPT_PIN = 9;
 void VaccumInterrupt();
 ///////////////
 
+void downmove(); // 하강 함수 선언
+
 void blink(); // LED 깜빡임 함수 선언
 
 Scheduler scheduler;												  // 스케줄러 객체 생성
 Task tGetCommand(10, TASK_FOREVER, GetCommand, &scheduler, false);	  // 태스크 객체 생성
 Task tHandleCommand(10, TASK_ONCE, HandleCommand, &scheduler, false); // 태스크 객체 생성
 Task tRun(0, TASK_FOREVER, run, &scheduler, false);					  // 태스크 객체 생성
+Task tDownmove(1, TASK_FOREVER, downmove, &scheduler, false);		  // 태스크 객체 생성
 Task tBlink(1000, TASK_FOREVER, blink, &scheduler, false);			  // 태스크 객체 생성
 
 void setup()
@@ -143,7 +146,7 @@ void GetCommand()
 		command.trim();							// 공백 제거
 		command.toUpperCase();					// 대문자로 변환
 		// Serial.println(command);				 // 수신된 명령어 출력
-		if (command[0] == 'M' || command[0] == 'R' || command[0] == 'G' || command[0] == 'S')
+		if (command[0] == 'M' || command[0] == 'R' || command[0] == 'G' || command[0] == 'S' || command[0] == 'D')
 		{									  // 명령어가 M, R, G일 때
 			tHandleCommand.restartDelayed(0); // 태스크 재시작
 			command_flag = 1;				  // 명령어 수신 플래그 설정
@@ -207,26 +210,52 @@ void HandleCommand()
 	{
 		command_queue.push(COMMAND_DATA(command[0]));
 	}
+	else if (command[0] == 'D')
+	{
+		tDownmove.restartDelayed(0); // 하강 태스크 재시작
+		// stepper[0].setAcceleration(100000);
+		// stepper[1].setAcceleration(100000);
+		// stepper[2].setAcceleration(100000);
+		// stepper[0].setMaxSpeed(1000);
+		// stepper[1].setMaxSpeed(1000);
+		// stepper[2].setMaxSpeed(1000);
+		tRun.disable();		   // 이동 태스크 비활성화
+		tGetCommand.disable(); // 명령어 수신 태스크 비활성화
+	}
 
 	command_flag = 0; // 명령어 수신 플래그 초기화
 }
 
 void run()
 {
+	// static int bang_geum_mum_chum = 0;
+	if (stepper[0].distanceToGo() || stepper[1].distanceToGo() || stepper[2].distanceToGo())
+	{
+		// bang_geum_mum_chum = 1; // 스텝퍼가 이동 중이면 뱅금문춤 증가
+		return;					// 스텝퍼가 이동 중이면 리턴
+	}
+	// if (bang_geum_mum_chum)
+	// {
+	// 	Serial.println("done");
+	// 	bang_geum_mum_chum = 0; // 뱅금문춤 초기화
+	// }
+
 	if (command_queue.is_empty())
 		return; // 큐가 비어있으면 리턴
-
-	if (stepper[0].distanceToGo() || stepper[1].distanceToGo() || stepper[2].distanceToGo())
-		return; // 스텝퍼가 이동 중이면 리턴
 
 	COMMAND_DATA command_data = command_queue.front();
 	command_queue.pop();
 
 	if (command_data.command == 'M')
 	{
-		// SpeedSynchronization(command_data.data); // 속도 동기화
+		SpeedSynchronization(command_data.data); // 속도 동기화
 		for (int i = 0; i < STEPPERS_NUM; i++)
 		{
+			if (command_data.data[i] < -7000 || command_data.data[i] > 2500)
+			{
+				Serial.println("Invalid Position");
+				return; // 위치값이 유효 범위를 벗어나면 리턴
+			}
 			stepper[i].moveTo(command_data.data[i]);
 		}
 	}
@@ -266,6 +295,8 @@ void run()
 		stepper[0].setCurrentPosition(-600); // 초기 위치 보정
 		stepper[1].setCurrentPosition(-600);
 		stepper[2].setCurrentPosition(-600);
+		long tmp[3] = {0, 0, 0};
+		SpeedSynchronization(tmp); // 속도 동기화
 		stepper[0].moveTo(0);
 		stepper[1].moveTo(0);
 		stepper[2].moveTo(0);
@@ -320,6 +351,45 @@ void SpeedSynchronization(long position[])
 	}
 }
 
+void downmove()
+{
+	if (!Serial.available())
+		return;									 // 시리얼 포트에 데이터가 없으면 리턴
+	String input = Serial.readStringUntil('\n'); // 명령어 수신
+	input.trim();								 // 공백 제거
+
+	long position[3];
+
+	int idx_st = 2;
+	int idx_ed = idx_st;
+
+	for (int i = 0; i < 3; i++)
+	{
+		while ((input[idx_ed] >= '0' && input[idx_ed] <= '9') || input[idx_ed] == '-' || input[idx_ed] == '+')
+			idx_ed++;
+		position[i] = input.substring(idx_st, idx_ed).toInt(); // 명령어에서 속도값 추출
+		idx_st = ++idx_ed;
+	}
+
+	// Serial.print("Downmove Position: ");
+	// Serial.print(position[0]);
+	// Serial.print(", ");
+	// Serial.print(position[1]);
+	// Serial.print(", ");
+	// Serial.println(position[2]);
+
+	stepper[0].moveTo(position[0]); // 목표 위치 설정
+	stepper[1].moveTo(position[1]);
+	stepper[2].moveTo(position[2]);
+	// stepper[0].setSpeed(5000); // 속도 설정
+	// stepper[1].setSpeed(5000);
+	// stepper[2].setSpeed(5000);
+
+	// stepper[0].runToNewPosition(position[0]);
+	// stepper[1].runToNewPosition(position[1]);
+	// stepper[2].runToNewPosition(position[2]);
+}
+
 void VaccumInterrupt()
 {
 	for (int i = 0; i < STEPPERS_NUM; i++)
@@ -327,9 +397,12 @@ void VaccumInterrupt()
 		stepper[i].moveTo(stepper[i].currentPosition()); // 현재 위치를 목표 포지션으로 설정
 		stepper[i].setSpeed(0);
 	}
-	fs = true; // 플래그 설정
-	command_queue.push_front(COMMAND_DATA('M', stepper[0].currentPosition() + 200,
-										  stepper[1].currentPosition() + 200, stepper[2].currentPosition() + 200)); // 목표 포지션 설정
+	fs = true;					   // 플래그 설정
+	tDownmove.disable();		   // 하강 태스크 비활성화
+	tRun.restartDelayed(0);		   // 이동 태스크 재시작
+	tGetCommand.restartDelayed(0); // 명령어 수신 태스크 재시작
+	command_queue.push_front(COMMAND_DATA('M', stepper[0].currentPosition() + 1000,
+										  stepper[1].currentPosition() + 1000, stepper[2].currentPosition() + 1000)); // 목표 포지션 설정
 }
 
 void blink()
